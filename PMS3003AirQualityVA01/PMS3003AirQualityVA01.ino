@@ -47,6 +47,8 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <WiFiUdp.h>
+#include <HttpClient.h>
+#include <Xively.h>
 // THIS INLCUDE LIB FOR dhx sensor
 #include "DHT.h"
 // Uncomment whatever type you're using!
@@ -68,14 +70,15 @@ RTC_DS1307 RTC;
 uint8_t MacData[6];
 
 SoftwareSerial mySerial(0, 1); // RX, TX
-char ssid[] = "TSAO";      // your network SSID (name)
-char pass[] = "TSAO1234";     // your network password
+char ssid[] = "InnoSquare_Hack";      // your network SSID (name)
+char pass[] = "hack2016";     // your network password
 int keyIndex = 0;               // your network key Index number (needed only for WEP)
 
 char gps_lat[] = "23.954710";  // device's gps latitude 清心福全(中正店) 510彰化縣員林市中正路254號
 char gps_lon[] = "120.574482"; // device's gps longitude 清心福全(中正店) 510彰化縣員林市中正路254號
 
 char server[] = "gpssensor.ddns.net"; // the MQTT server of LASS
+#define SITE_URL "184.106.153.149"
 
 #define MAX_CLIENT_ID_LEN 10
 #define MAX_TOPIC_LEN     50
@@ -89,6 +92,7 @@ String MacAddress ;
 int status = WL_IDLE_STATUS;
 boolean ParticleSensorStatus = true ;
 WiFiUDP Udp;
+
 
 const char ntpServer[] = "pool.ntp.org";
 const long timeZoneOffset = 28800L; 
@@ -115,9 +119,19 @@ uint16_t PM01Value=0;          //define PM1.0 value of the air detector module
 uint16_t PM2_5Value=0;         //define PM2.5 value of the air detector module
 uint16_t PM10Value=0;         //define PM10 value of the air detector module
   int NDPyear, NDPmonth, NDPday, NDPhour, NDPminute, NDPsecond;
-  unsigned long epoch  ;
+  int HumidityData = 0 ;
+  int TemperatureData = 0 ;
+   unsigned long epoch  ;
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
 DHT dht(DHTSensorPin, DHTTYPE);
+
+// this var is used for Thingspeak Clouding use
+String writeAPIKey = "SR7NKI5Z0YLVEIJF";    // Write API Key for a ThingSpeak Channel
+const int updateInterval = 5000;        // Time interval in milliseconds to update ThingSpeak   
+long lastConnectionTime = 0; 
+boolean lastConnected = false;
+int resetCounter = 0;
+
 
 
 void setup() {
@@ -139,7 +153,7 @@ void setup() {
   showLed() ;
   ShowInternetStatus() ;
   
-  initializeMQTT();
+//  initializeMQTT();
    //  initRTC() ;
      delay(1500);
 }
@@ -149,13 +163,44 @@ void loop() { // run over and over
   showLed() ;
     retrievePM25Value() ;
     ShowHumidity() ;
+ /*
    if (!client.connected()) {
     reconnectMQTT();
   }
-  client.loop();
+  */
+    //  updateThingSpeak("field4="+Ampdata);
+ //   Serial.println("Update thingspeak is ok");
+    updateThingSpeak("field1="+MacAddress+"&field2="+StrDate()+"&field3="+StrTime()+"&field4="+String(pm10)+"&field5="+String(pm25)+"&field6="+String(pm100)+"&field7="+String(HumidityData)+"&field8="+String(TemperatureData));
+    Serial.println("Update thingspeak is ok");
 
-  delay(3000); // delay 1 minute for next measurement
+
+ // client.loop();
+
+  delay(6000); // delay 1 minute for next measurement
   
+/*
+  int checkSum=checkValue(buf,pmsDataLen);
+  if(pmsDataLen&&checkSum)
+  {
+    PM01Value=transmitPM01(buf);
+    PM2_5Value=transmitPM2_5(buf);
+    PM10Value=transmitPM10(buf);
+  }
+    static unsigned long OledTimer=millis();
+  if (millis() - OledTimer >=1000)
+  {
+    OledTimer=millis();
+      Serial.print("PM1.0: ");
+      Serial.print(PM01Value);
+      Serial.println("  ug/m3");
+      Serial.print("PM2.5: ");
+      Serial.print(PM2_5Value);
+      Serial.println("  ug/m3");
+      Serial.print("PM10:  "); //send PM1.0 data to bluetooth
+      Serial.print(PM10Value);
+      Serial.println("ug/m3");
+  }
+*/
 
 }
 
@@ -241,6 +286,8 @@ void ShowHumidity()
   float t = dht.readTemperature();
   // Read temperature as Fahrenheit (isFahrenheit = true)
   float f = dht.readTemperature(true);
+    HumidityData = (int)h ;
+    TemperatureData = (int)t ;
     Serial.print("Humidity :") ;
     Serial.print(h) ;
     Serial.print("%  /") ;
@@ -408,11 +455,13 @@ void retrieveNtpTime() {
     unsigned long lowWord = word(ntpRecvBuffer[42], ntpRecvBuffer[43]);
     unsigned long secsSince1900 = highWord << 16 | lowWord;
     const unsigned long seventyYears = 2208988800UL;
-     epoch = secsSince1900 - seventyYears + timeZoneOffset ;
+//     epoch = secsSince1900 - seventyYears + timeZoneOffset ;
+     epoch = secsSince1900 - seventyYears ;
 
     epochSystem = epoch - millis() / 1000;
   }
 }
+
 
 void getCurrentTime(unsigned long epoch, int *year, int *month, int *day, int *hour, int *minute, int *second) {
   int tempDay = 0;
@@ -462,14 +511,17 @@ void getCurrentTime(unsigned long epoch, int *year, int *month, int *day, int *h
 
 void reconnectMQTT() {
   // Loop until we're reconnected
-  char payload[300];
+  char payload[400];
 
   unsigned long epoch = epochSystem + millis() / 1000;
-  int year, month, day, hour, minute, second;
+ // int year, month, day, hour, minute, second;
 //  getCurrentTime(epoch, &year, &month, &day, &hour, &minute, &second);
+    
     digitalWrite(AccessLed,turnon) ;
-DateTime now = RTC.now(); 
+//DateTime now = RTC.now(); 
   //ttt = print2digits(now.hour()) + ":" + print2digits(now.minute()) + ":" + print2digits(now.second()) ;
+//  getCurrentTime(epoch+timeZoneOffset, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
+  getCurrentTime(epoch, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
 
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
@@ -478,12 +530,14 @@ DateTime now = RTC.now();
       Serial.println("connected");
 
 //      sprintf(payload, "|ver_format=3|fmt_opt=1|app=Pm25Ameba|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=9|gps_alt=2",
-      sprintf(payload, "|ver_format=3|fmt_opt=1|app=PM25|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=9|gps_alt=2",
+      sprintf(payload, "|ver_format=3|fmt_opt=0|app=PM25|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|s_h0=%d|s_t0=%d|gps_lat=%s|gps_lon=%s|gps_fix=0|gps_num=0|gps_alt=13",
         clientId,
         millis(),
-        now.year(), now.month(), now.day(),
-        now.hour(), now.minute(), now.second(),
+        NDPyear, NDPmonth, NDPday,
+        NDPhour, NDPminute, NDPsecond,
         pm25,
+        HumidityData,
+        TemperatureData,
         gps_lat, gps_lon
       );
 
@@ -518,10 +572,10 @@ void retrievePM25Value() {
       pm100 = ( buf[14] << 8 ) | buf[15]; 
       Serial.print("pm2.5: ");
       Serial.print(pm25);
-      Serial.print(", ug/m3");
+      Serial.print(" ug/m3");
       Serial.print("pm1.5: ");
       Serial.print(pm10);
-      Serial.print(", ug/m3");
+      Serial.print(" ug/m3");
       Serial.print("pm100: ");
       Serial.print(pm100);
       Serial.print(" ug/m3");
@@ -542,8 +596,8 @@ void initializeWiFi() {
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-   status = WiFi.begin(ssid, pass);
-  //  status = WiFi.begin(ssid);
+    status = WiFi.begin(ssid, pass);
+  //   status = WiFi.begin(ssid);
 
     // wait 10 seconds for connection:
     delay(10000);
@@ -559,7 +613,8 @@ void initializeMQTT() {
  // WiFi.macAddress(MacData);
   memset(clientId, 0, MAX_CLIENT_ID_LEN);
   sprintf(clientId, "FT1_0%02X%02X", MacData[4], MacData[5]);
-  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+//  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+  sprintf(outTopic, "LASS/Test/PM25");
 
   Serial.print("MQTT client id:");
   Serial.println(clientId);
@@ -659,7 +714,7 @@ void SetRTCFromNtpTime()
 {
   retrieveNtpTime();
   //DateTime ttt;
-    getCurrentTime(epoch, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
+    getCurrentTime(epoch+timeZoneOffset, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
     //ttt->year = NDPyear ;
     Serial.print("NDP Date is :");
     Serial.print(StringDate(NDPyear,NDPmonth,NDPday));
@@ -668,8 +723,57 @@ void SetRTCFromNtpTime()
     Serial.print(StringTime(NDPhour,NDPminute,NDPsecond));
     Serial.print("\n");
     
-        RTC.adjust(DateTime(epoch));
+        RTC.adjust(DateTime(epoch+timeZoneOffset));
 
   
 }
+
+void updateThingSpeak(String tsData)
+{
+  if (wifiClient.connect(SITE_URL, 80))
+  { 
+    Serial.println("Connected to ThingSpeak...");
+    Serial.println();
+        
+    wifiClient.print("POST /update HTTP/1.1\n");
+    wifiClient.print("Host: api.thingspeak.com\n");
+    wifiClient.print("Connection: close\n");
+    wifiClient.print("X-THINGSPEAKAPIKEY: "+writeAPIKey+"\n");
+    wifiClient.print("Content-Type: application/x-www-form-urlencoded\n");
+    wifiClient.print("Content-Length: ");
+    wifiClient.print(tsData.length());
+    wifiClient.print("\n\n");
+
+    wifiClient.print(tsData);
+    
+    lastConnectionTime = millis();
+    
+    resetCounter = 0;
+    
+  }
+  else
+  {
+    Serial.println("Connection Failed.");   
+    Serial.println();
+    
+    resetCounter++;
+    
+    if (resetCounter >=5 ) {resetEthernetShield();}
+
+    lastConnectionTime = millis(); 
+  }
+}
+
+void resetEthernetShield()
+{
+  Serial.println("Resetting Ethernet Shield.");   
+  Serial.println();
+  
+  wifiClient.stop();
+  //delay(1000);
+  
+ // Ethernet.begin(mac, ip, gateway, subnet);
+  delay(1000);
+}
+
 

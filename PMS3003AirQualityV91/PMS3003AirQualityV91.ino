@@ -68,8 +68,8 @@ RTC_DS1307 RTC;
 uint8_t MacData[6];
 
 SoftwareSerial mySerial(0, 1); // RX, TX
-char ssid[] = "linkitone";      // your network SSID (name)
-char pass[] = "";     // your network password
+char ssid[] = "TSAO_1F";      // your network SSID (name)
+char pass[] = "TSAO1234";     // your network password
 int keyIndex = 0;               // your network key Index number (needed only for WEP)
 
 char gps_lat[] = "23.954710";  // device's gps latitude 清心福全(中正店) 510彰化縣員林市中正路254號
@@ -155,7 +155,7 @@ void loop() { // run over and over
     reconnectMQTT();
   }
   client.loop();
-
+  Serial.println(millis()) ;
   delay(6000); // delay 1 minute for next measurement
   
 /*
@@ -576,8 +576,8 @@ void initializeWiFi() {
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
- //  status = WiFi.begin(ssid, pass);
-     status = WiFi.begin(ssid);
+    status = WiFi.begin(ssid, pass);
+  //   status = WiFi.begin(ssid);
 
     // wait 10 seconds for connection:
     delay(10000);

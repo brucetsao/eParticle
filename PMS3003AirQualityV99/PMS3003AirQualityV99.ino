@@ -60,7 +60,7 @@
 
 #include "RTClib.h"
 RTC_DS1307 RTC;
-//DateTime nowT = RTC.now(); 
+DateTime nowT  ;
 
 #include <LiquidCrystal_I2C.h>
 #include <SoftwareSerial.h>
@@ -68,7 +68,7 @@ RTC_DS1307 RTC;
 uint8_t MacData[6];
 
 SoftwareSerial mySerial(0, 1); // RX, TX
-char ssid[] = "TSAO";      // your network SSID (name)
+char ssid[] = "TSAO_1F";      // your network SSID (name)
 char pass[] = "TSAO1234";     // your network password
 int keyIndex = 0;               // your network key Index number (needed only for WEP)
 
@@ -91,6 +91,7 @@ boolean ParticleSensorStatus = true ;
 WiFiUDP Udp;
 
 const char ntpServer[] = "pool.ntp.org";
+//const long timeZoneOffset = 28800L; 
 const long timeZoneOffset = 28800L; 
 const int NTP_PACKET_SIZE = 48; // NTP time stamp is in the first 48 bytes of the message
 const byte nptSendPacket[ NTP_PACKET_SIZE] = {
@@ -115,12 +116,15 @@ uint16_t PM01Value=0;          //define PM1.0 value of the air detector module
 uint16_t PM2_5Value=0;         //define PM2.5 value of the air detector module
 uint16_t PM10Value=0;         //define PM10 value of the air detector module
   int NDPyear, NDPmonth, NDPday, NDPhour, NDPminute, NDPsecond;
-  unsigned long epoch  ;
+  int HumidityData = 0 ;
+  int TemperatureData = 0 ;
+   unsigned long epoch  ;
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
 DHT dht(DHTSensorPin, DHTTYPE);
 
 
-void setup() {
+void setup() 
+{
   initPins() ;
   Serial.begin(9600);
    dht.begin();
@@ -141,73 +145,28 @@ void setup() {
   
   initializeMQTT();
    //  initRTC() ;
-     delay(1500);
+     delay(3000);
 }
 
-void loop() { // run over and over
+void loop() 
+{ // run over and over
+
+  //  nowT = RTC.now() ;
     ShowDateTime() ;
-  showLed() ;
-    retrievePM25Value() ;
-    ShowHumidity() ;
-   if (!client.connected()) {
-    reconnectMQTT();
-  }
-  client.loop();
-
-  delay(3000); // delay 1 minute for next measurement
-  
-
-}
-
-uint8_t checkValue(uint8_t *thebuf, uint8_t leng)
-{  
-  uint8_t receiveflag=1;
-  uint16_t receiveSum=0;
-  uint8_t i=0;
-
-  for(i=0;i<leng;i++)
-  {
-  receiveSum=receiveSum+thebuf[i];
-  }
-  
-  if(receiveSum==((thebuf[leng-2]<<8)+thebuf[leng-1]+thebuf[leng-2]+thebuf[leng-1]))  //check the serial data 
-      {
-        receiveSum=0;
-      receiveflag=1;
-    //  Serial.print(receiveflag);
-      return receiveflag;
-      }
-}
-//transmit PM Value to PC
-uint16_t transmitPM01(uint8_t *thebuf)
-{
-
-  uint16_t PM01Val;
-
-  PM01Val=((thebuf[4]<<8) + thebuf[5]); //count PM1.0 value of the air detector module
-  return PM01Val;
-}
-
-//transmit PM Value to PC
-uint16_t transmitPM2_5(uint8_t *thebuf)
-{
-      uint16_t PM2_5Val;
-    
-        PM2_5Val=((thebuf[6]<<8) + thebuf[7]);//count PM2.5 value of the air detector module
-    
-      return PM2_5Val;
-  }
-
-//transmit PM Value to PC
-uint16_t transmitPM10(uint8_t *thebuf)
-{
-  
-      uint16_t PM10Val;
-    
-        PM10Val=((thebuf[8]<<8) + thebuf[9]); //count PM10 value of the air detector module
-      
-      return PM10Val;
-  }
+     showLed() ;
+              
+                retrievePM25Value() ;
+                ShowHumidity() ;
+               if (!client.connected()) 
+               {
+                   reconnectMQTT();
+               }
+                      client.loop();
+             // Serial.println(millis()) ;
+              
+              
+        delay(1000); // delay 1 minute for next measurement
+ }
 
 void ShowMac()
 {
@@ -241,6 +200,8 @@ void ShowHumidity()
   float t = dht.readTemperature();
   // Read temperature as Fahrenheit (isFahrenheit = true)
   float f = dht.readTemperature(true);
+    HumidityData = (int)h ;
+    TemperatureData = (int)t ;
     Serial.print("Humidity :") ;
     Serial.print(h) ;
     Serial.print("%  /") ;
@@ -286,8 +247,8 @@ void ShowDateTime()
 String  StrDate() {
   String ttt ;
 //nowT  = now; 
-DateTime now = RTC.now(); 
- ttt = print4digits(now.year()) + "-" + print2digits(now.month()) + "-" + print2digits(now.day()) ;
+nowT = RTC.now(); 
+ ttt = print4digits(nowT.year()) + "-" + print2digits(nowT.month()) + "-" + print2digits(nowT.day()) ;
  //ttt = print4digits(NDPyear) + "/" + print2digits(NDPmonth) + "/" + print2digits(NDPday) ;
   return ttt ;
 }
@@ -303,8 +264,8 @@ String  StringDate(int yyy,int mmm,int ddd) {
 String  StrTime() {
   String ttt ;
  // nowT  = RTC.now(); 
- DateTime now = RTC.now(); 
-  ttt = print2digits(now.hour()) + ":" + print2digits(now.minute()) + ":" + print2digits(now.second()) ;
+  nowT = RTC.now(); 
+  ttt = print2digits(nowT.hour()) + ":" + print2digits(nowT.minute()) + ":" + print2digits(nowT.second()) ;
   //  ttt = print2digits(NDPhour) + ":" + print2digits(NDPminute) + ":" + print2digits(NDPsecond) ;
 return ttt ;
 }
@@ -408,11 +369,13 @@ void retrieveNtpTime() {
     unsigned long lowWord = word(ntpRecvBuffer[42], ntpRecvBuffer[43]);
     unsigned long secsSince1900 = highWord << 16 | lowWord;
     const unsigned long seventyYears = 2208988800UL;
-     epoch = secsSince1900 - seventyYears + timeZoneOffset ;
+//     epoch = secsSince1900 - seventyYears + timeZoneOffset ;
+     epoch = secsSince1900 - seventyYears ;
 
     epochSystem = epoch - millis() / 1000;
   }
 }
+
 
 void getCurrentTime(unsigned long epoch, int *year, int *month, int *day, int *hour, int *minute, int *second) {
   int tempDay = 0;
@@ -462,14 +425,9 @@ void getCurrentTime(unsigned long epoch, int *year, int *month, int *day, int *h
 
 void reconnectMQTT() {
   // Loop until we're reconnected
-  char payload[300];
-
-  unsigned long epoch = epochSystem + millis() / 1000;
-  int year, month, day, hour, minute, second;
-//  getCurrentTime(epoch, &year, &month, &day, &hour, &minute, &second);
+  char payload[400];
+   nowT = RTC.now(); 
     digitalWrite(AccessLed,turnon) ;
-DateTime now = RTC.now(); 
-  //ttt = print2digits(now.hour()) + ":" + print2digits(now.minute()) + ":" + print2digits(now.second()) ;
 
   while (!client.connected()) {
     Serial.print("Attempting MQTT connection...");
@@ -478,12 +436,15 @@ DateTime now = RTC.now();
       Serial.println("connected");
 
 //      sprintf(payload, "|ver_format=3|fmt_opt=1|app=Pm25Ameba|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=9|gps_alt=2",
-      sprintf(payload, "|ver_format=3|fmt_opt=1|app=PM25|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=9|gps_alt=2",
+      sprintf(payload, "|ver_format=3|fmt_opt=0|app=PM25|ver_app=0.0.1|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|s_h0=%d|s_t0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=12|gps_alt=11",
+//      sprintf(payload, "|ver_format=3|fmt_opt=0|app=PM25|ver_app=0.7.3|device_id=%s|tick=%d|date=%4d-%02d-%02d|time=%02d:%02d:%02d|device=Ameba|s_d0=%d|s_h0=%d|s_t0=%d|gps_lat=%s|gps_lon=%s|gps_fix=1|gps_num=12|gps_alt=11",
         clientId,
         millis(),
-        now.year(), now.month(), now.day(),
-        now.hour(), now.minute(), now.second(),
+        (int)nowT.year(),(int)nowT.month(),(int)nowT.day(),
+        (int)nowT.hour(),(int)nowT.minute(),(int)nowT.second(),
         pm25,
+        HumidityData,
+        TemperatureData,
         gps_lat, gps_lon
       );
 
@@ -516,16 +477,16 @@ void retrievePM25Value() {
       pm25 = ( buf[12] << 8 ) | buf[13]; 
       pm10 = ( buf[10] << 8 ) | buf[11]; 
       pm100 = ( buf[14] << 8 ) | buf[15]; 
-      Serial.print("pm2.5: ");
+      Serial.print("pm2.5:");
       Serial.print(pm25);
-      Serial.print(", ug/m3");
-      Serial.print("pm1.5: ");
+      Serial.print(" ug/m3  ");
+      Serial.print("pm1.0: ");
       Serial.print(pm10);
-      Serial.print(", ug/m3");
-      Serial.print("pm100: ");
+      Serial.print(" ug/m3  ");
+      Serial.print(" pm100: ");
       Serial.print(pm100);
       Serial.print(" ug/m3");
-      Serial.println("");
+      Serial.print("\n");
       hasPm25Value = true;
       ShowPM(pm25,pm10,pm100) ;
     }
@@ -542,8 +503,8 @@ void initializeWiFi() {
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-   status = WiFi.begin(ssid, pass);
-  //  status = WiFi.begin(ssid);
+    status = WiFi.begin(ssid, pass);
+  //   status = WiFi.begin(ssid);
 
     // wait 10 seconds for connection:
     delay(10000);
@@ -559,7 +520,8 @@ void initializeMQTT() {
  // WiFi.macAddress(MacData);
   memset(clientId, 0, MAX_CLIENT_ID_LEN);
   sprintf(clientId, "FT1_0%02X%02X", MacData[4], MacData[5]);
-  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+//  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+  sprintf(outTopic, "LASS/Test/PM25");
 
   Serial.print("MQTT client id:");
   Serial.println(clientId);
@@ -648,8 +610,6 @@ pinMode(DHTSensorPin,INPUT) ;
 pinMode(ParticleSensorLed,OUTPUT) ;
 pinMode(InternetLed,OUTPUT) ;
 pinMode(AccessLed,OUTPUT) ;
-
-
 digitalWrite(ParticleSensorLed,turnoff) ;
 digitalWrite(InternetLed,turnoff) ;
 digitalWrite(AccessLed,turnoff) ;
@@ -659,6 +619,7 @@ void SetRTCFromNtpTime()
 {
   retrieveNtpTime();
   //DateTime ttt;
+//    getCurrentTime(epoch+timeZoneOffset, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
     getCurrentTime(epoch, &NDPyear, &NDPmonth, &NDPday, &NDPhour, &NDPminute, &NDPsecond);
     //ttt->year = NDPyear ;
     Serial.print("NDP Date is :");
@@ -668,8 +629,8 @@ void SetRTCFromNtpTime()
     Serial.print(StringTime(NDPhour,NDPminute,NDPsecond));
     Serial.print("\n");
     
+//        RTC.adjust(DateTime(epoch+timeZoneOffset));
         RTC.adjust(DateTime(epoch));
-
-  
+          nowT = RTC.now(); 
 }
 
