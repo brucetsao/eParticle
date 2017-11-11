@@ -52,8 +52,8 @@
 // THIS INLCUDE LIB FOR dhx sensor
 #include "DHT.h"
 // Uncomment whatever type you're using!
-//#define DHTTYPE DHT11   // DHT 11
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define DHTTYPE DHT11   // DHT 11
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 //#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 #include <Wire.h>  // Arduino IDE 內建
@@ -72,19 +72,26 @@ uint8_t MacData[6];
 SoftwareSerial mySerial(0, 1); // RX, TX
 //char ssid[] = "PM25";      // your network SSID (name)
 //char pass[] = "12345678";     // your network password
-char ssid[] = "TSAO_1F";      // your network SSID (name)
-char pass[] = "TSAO1234";     // your network password
+char ssid[] = "PM25";      // your network SSID (name)
+char pass[] = "qq12345678";     // your network password
 //  使用者改上面的AP名字與AP 密碼就可以換成您自己的
 
 
 int keyIndex = 0;               // your network key Index number (needed only for WEP)
+//靜宜大學主顧樓
+//433台中市沙鹿區
+//24.227032, 120.583521
 
-const char gps_lat[] = "24.267526";   //吳厝國小
-const char gps_lon[] = "120.602697";  //吳厝國小
+
+
+//510彰化縣員林市中正路240巷53號
+//23.955025, 120.575861
+const char gps_lat[] = "23.955025";   //TSAO
+const char gps_lon[] = "120.575861";  //TSAO
 const char gps_alt[] = "30";
 //  使用者改上面的gps_lat[] & gps_lon[] 經緯度內容就可以換成您自己的位置
 
-char server[] = "gpssensor.ddns.net"; // the MQTT server of LASS
+char server[] = "gpssensor.ddns.net" ; // the MQTT server of LASS
 
 #define MAX_CLIENT_ID_LEN 10
 #define MAX_TOPIC_LEN     50
@@ -125,8 +132,8 @@ int NDPyear, NDPmonth, NDPday, NDPhour, NDPminute, NDPsecond;
 int HumidityData = 0 ;
 int TemperatureData = 0 ;
 unsigned long epoch  ;
-//LiquidCrystal_I2C lcd(0x3F, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
- LiquidCrystal_I2C lcd(0x3F, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
+//LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
+ LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);  // 設定 LCD I2C 位址
 
 DHT dht(DHTSensorPin, DHTTYPE);
 bool hasPm25Value = false;
@@ -172,21 +179,24 @@ void loop()
   ShowError() ;
   retrievePM25Value() ;
 
-  if (hasPm25Value )
-    ShowPM()  ;
+
     
   showLed() ;
   ShowDateTime() ;
   ShowHumidity() ;
-  if (!client.connected())
-  {
-    reconnectMQTT();
-      showLed() ;
-  }
+    if (hasPm25Value )
+    {
+          ShowPM()  ;
+        reconnectMQTT();
+       showLed() ;
+   }
+//  if (!client.connected())
+ 
+
   client.loop();
   // Serial.println(millis()) ;
 
-  delay(10000); // delay 1 minute for next measurement
+  delay(20000); // delay 1 minute for next measurement
   //
    status = WiFi.status() ; 
   if (status != WL_CONNECTED)
@@ -479,9 +489,9 @@ void reconnectMQTT() {
   char payload[400];
   nowT = RTC.now();
   digitalWrite(AccessLed, turnon) ;
-
-  while (!client.connected()) 
-  {
+  ConnectingMQTT(true) ;
+ // while (!client.connected()) 
+//  {
     Serial.print("Attempting MQTT connection...");
     // Attempt to connect
     if (client.connect(clientId))
@@ -503,6 +513,8 @@ void reconnectMQTT() {
 
       // Once connected, publish an announcement...
       client.publish(outTopic, payload);
+  ConnectingMQTT(false) ;
+
     }
     else
     {
@@ -510,16 +522,18 @@ void reconnectMQTT() {
           Serial.print(client.state());
           Serial.println(" try again in 5 seconds");
           // Wait 5 seconds before retrying
-          delay(1000);
-          connectWifiCount ++ ;
+       //   delay(1000);
+      //    connectWifiCount ++ ;
     }
+    /*
     if (connectWifiCount > 3)
     {
       Serial.println("Connect MQTT Error") ;
         break ;
      // ReConnectInternet();
     }
-  }
+    */
+ // }
   digitalWrite(AccessLed, turnoff) ;
 }
 
@@ -639,10 +653,16 @@ void initializeMQTT() {
   digitalWrite(AccessLed, turnon) ;
   // byte mac[6];
   // WiFi.macAddress(MacData);
-  memset(clientId, 0, MAX_CLIENT_ID_LEN);
-  sprintf(clientId, "FT1_0%02X%02X", MacData[4], MacData[5]);
-  //  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
-  sprintf(outTopic, "LASS/Test/PM25");
+
+    memset(clientId, 0, MAX_CLIENT_ID_LEN);
+  sprintf(clientId, "FT1_%02X%02X", MacData[4], MacData[5]);
+  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+  
+  //memset(clientId, 0, MAX_CLIENT_ID_LEN);
+ // sprintf(clientId, "FT1_0%02X%02X", MacData[4], MacData[5]);
+//  sprintf(outTopic, "LASS/Test/PM25/%s", clientId);
+//  sprintf(outTopic, "LASS/Test/PM25");
+
 
   Serial.print("MQTT client id:");
   Serial.println(clientId);
@@ -715,7 +735,7 @@ void showLed()
 
 void initRTC()
 {
-  Wire.begin();
+  Wire1.begin();
   RTC.begin();
   if (WiFi.status())
     SetRTCFromNtpTime() ;
@@ -798,6 +818,20 @@ void ShowError()
   lcd.print(ErrorCount) ;
 }
 
+void ConnectingMQTT(boolean tt)
+{
+    if (tt)
+    {
+        lcd.setCursor(17, 0); // 設定游標位置在第一行行首
+        lcd.print("*") ;
+    }
+    else
+    {
+        lcd.setCursor(17, 0); // 設定游標位置在第一行行首
+        lcd.print(" ") ;
+    }
+    
+}
 void LCDClear()
 {
    lcd.clear() ;
@@ -808,4 +842,5 @@ void ClearSerialBuffer()
 while ( mySerial.available() >0)
     mySerial.read() ;
 }
+
 

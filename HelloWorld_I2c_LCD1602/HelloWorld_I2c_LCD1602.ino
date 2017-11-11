@@ -8,7 +8,7 @@
 
 void setup()
 {
-  lcd.begin(20, 4);      // 初始化 LCD，一行 20 的字元，共 4 行，預設開啟背光
+  lcd.begin(16, 2);      // 初始化 LCD，一行 20 的字元，共 4 行，預設開啟背光
   lcd.backlight(); // 開啟背光
   lcd.setCursor(3,0);
   lcd.print("Hello, world!");
@@ -19,4 +19,9 @@ void setup()
 
 void loop()
 {
+    lcd.setCursor(3,0);
+  lcd.print("Hello, world!");
+   lcd.setCursor(2,1);
+  lcd.print("By BruceTsao!");
+  delay(2000) ;
 }
